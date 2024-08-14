@@ -6,7 +6,7 @@ st.title("Teacher Data Processing App")
 
 # Upload files
 teacher_data_file = st.file_uploader("Upload the teacher data Excel file", type="xlsx")
-criteria_file = st.file_uploader("Upload the criteria Excel file", type="xlsx")
+criteria_file = st.file_uploader("Upload the subject mapping Excel file", type="xlsx")
 
 if teacher_data_file and criteria_file:
     # Read files
@@ -67,7 +67,7 @@ if teacher_data_file and criteria_file:
     teacher_df['Subject'] = teacher_df['Subject'].apply(lambda x: ','.join(sorted(set(x.split(',')))))
 
     # Save the output file
-    output_file_refined_v3 = 'Updated_Consolidated_VGOS_Teacher_Data_Refined_v3.xlsx'
+    output_file_refined_v3 = 'VGOS_Teacher_Data.xlsx'
     teacher_df.to_excel(output_file_refined_v3, index=False)
 
     # Provide download link for the output file
