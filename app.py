@@ -4,82 +4,100 @@ import pandas as pd
 # Title of the app
 st.title("Teacher Data Processing App")
 
-# Upload files
-teacher_data_file = st.file_uploader("Upload the teacher data Excel file", type="xlsx")
-criteria_file = st.file_uploader("Upload the subject mapping Excel file", type="xlsx")
+try:
+    # Upload files
+    teacher_data_file = st.file_uploader("Upload the teacher data Excel file", type="xlsx")
+    criteria_file = st.file_uploader("Upload the subject mapping Excel file", type="xlsx")
 
-if teacher_data_file and criteria_file:
-    # Read files
-    teacher_df = pd.read_excel(teacher_data_file)
-    criteria_df = pd.read_excel(criteria_file)
+    if teacher_data_file and criteria_file:
+        try:
+            # Read files
+            teacher_df = pd.read_excel(teacher_data_file)
+            criteria_df = pd.read_excel(criteria_file)
 
-    # Extract criteria information
-    criteria_subjects = criteria_df[['subject', 'subsubjects', 'grades']].values.tolist()
-    criteria_grades = criteria_df['grades'].tolist()
+            # Extract criteria information
+            try:
+                criteria_subjects = criteria_df[['subject', 'subsubjects', 'grades']].values.tolist()
+                criteria_grades = criteria_df['grades'].tolist()
+            except KeyError as e:
+                st.error(f"Error: The column '{e.args[0]}' is missing from the subject mapping file. Please check the file and try again.")
+                st.stop()
 
-    teacher_df['Teacher Name'] = teacher_df['firstName']
-    teacher_df['Employee Code'] = teacher_df['employeeCode']
-    teacher_df['Highest Grade'] = 'NA'
-    teacher_df['Subject'] = 'NA'
+            teacher_df['Teacher Name'] = teacher_df['firstName']
+            teacher_df['Employee Code'] = teacher_df['employeeCode']
+            teacher_df['Highest Grade'] = 'NA'
+            teacher_df['Subject'] = 'NA'
 
-    def refined_subject_matches(subject, criteria_subjects, highest_grade):
-        subject = subject.lower()
-        matched_subjects = set()
-        for main_subject, sub_subject, grade in criteria_subjects:
-            main_subject = main_subject.lower()
-            sub_subject = sub_subject.lower()
-            if grade == highest_grade and ((main_subject == subject) or (sub_subject == subject)):
-                matched_subjects.add(main_subject)
-        return matched_subjects
+            def refined_subject_matches(subject, criteria_subjects, highest_grade):
+                subject = subject.lower()
+                matched_subjects = set()
+                for main_subject, sub_subject, grade in criteria_subjects:
+                    main_subject = main_subject.lower()
+                    sub_subject = sub_subject.lower()
+                    if grade == highest_grade and ((main_subject == subject) or (sub_subject == subject)):
+                        matched_subjects.add(main_subject)
+                return matched_subjects
 
-    def find_highest_grade_subject_refined(row):
-        highest_grade = 0
-        main_subjects = set()
+            def find_highest_grade_subject_refined(row):
+                highest_grade = 0
+                main_subjects = set()
 
-        for grade_col in range(1, 23):
-            grade_col_name = f'grade{grade_col}'
-            subject_col_name = f'subject{grade_col}'
-            grade = row[grade_col_name]
-            subject = row[subject_col_name]
+                for grade_col in range(1, 23):
+                    grade_col_name = f'grade{grade_col}'
+                    subject_col_name = f'subject{grade_col}'
+                    grade = row.get(grade_col_name)
+                    subject = row.get(subject_col_name)
 
-            if pd.notna(grade) and pd.notna(subject):
-                grade = int(grade)
-                if grade in criteria_grades:
-                    matched_subject = refined_subject_matches(subject, criteria_subjects, grade)
-                    if matched_subject:
-                        if grade > highest_grade:
-                            highest_grade = grade
-                            main_subjects = matched_subject
-                        elif grade == highest_grade:
-                            main_subjects.update(matched_subject)
+                    if pd.notna(grade) and pd.notna(subject):
+                        try:
+                            grade = int(grade)
+                        except ValueError:
+                            st.warning(f"Warning: Non-integer grade found in '{grade_col_name}' for teacher {row['firstName']}. Skipping this entry.")
+                            continue
 
-        if highest_grade > 0:
-            return highest_grade, ','.join(main_subjects)
+                        if grade in criteria_grades:
+                            matched_subject = refined_subject_matches(subject, criteria_subjects, grade)
+                            if matched_subject:
+                                if grade > highest_grade:
+                                    highest_grade = grade
+                                    main_subjects = matched_subject
+                                elif grade == highest_grade:
+                                    main_subjects.update(matched_subject)
 
-        return highest_grade, 'NA'
+                if highest_grade > 0:
+                    return highest_grade, ','.join(main_subjects)
 
-    # Apply the function to the DataFrame
-    for index, row in teacher_df.iterrows():
-        highest_grade, main_subject = find_highest_grade_subject_refined(row)
-        teacher_df.at[index, 'Highest Grade'] = highest_grade
-        teacher_df.at[index, 'Subject'] = main_subject
+                return highest_grade, 'NA'
 
-    teacher_df['Subject'] = teacher_df['Subject'].apply(lambda x: ','.join(sorted(set(x.split(',')))))
+            # Apply the function to the DataFrame
+            for index, row in teacher_df.iterrows():
+                highest_grade, main_subject = find_highest_grade_subject_refined(row)
+                teacher_df.at[index, 'Highest Grade'] = highest_grade
+                teacher_df.at[index, 'Subject'] = main_subject
 
-    # Save the output file
-    output_file_refined_v3 = 'VGOS_Teacher_Data.xlsx'
-    teacher_df.to_excel(output_file_refined_v3, index=False)
+            teacher_df['Subject'] = teacher_df['Subject'].apply(lambda x: ','.join(sorted(set(x.split(',')))))
 
-    # Provide download link for the output file
-    with open(output_file_refined_v3, "rb") as file:
-        st.download_button(
-            label="Download updated teacher data",
-            data=file,
-            file_name=output_file_refined_v3,
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
+            # Save the output file
+            output_file_refined_v3 = 'VGOS_Teacher_Data.xlsx'
+            teacher_df.to_excel(output_file_refined_v3, index=False)
 
-    st.success("Data processing complete. You can download the file now.")
+            # Provide download link for the output file
+            with open(output_file_refined_v3, "rb") as file:
+                st.download_button(
+                    label="Download updated teacher data",
+                    data=file,
+                    file_name=output_file_refined_v3,
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
 
-else:
-    st.info("Please upload both the teacher data file and criteria file to proceed.")
+            st.success("Data processing complete. You can download the file now.")
+
+        except Exception as e:
+            st.error(f"An unexpected error occurred while processing the files: {str(e)}")
+            st.stop()
+
+    else:
+        st.info("Please upload both the teacher data file and criteria file to proceed.")
+
+except Exception as e:
+    st.error(f"An error occurred: {str(e)}")
